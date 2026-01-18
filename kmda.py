@@ -927,21 +927,14 @@ async def track_requests_with_opentelemetry(request: Request, call_next):
 
 
 # --- CORS Middleware ---
-origins = [
-    "https://regulatoryai-dev.bialairport.com",
-    "https://regulatory-hqeeh0gha3areghh.southindia-01.azurewebsites.net",
-    "http://localhost:8020",
-    "http://127.0.0.1:8000"
-   "https://kpmgfinance-agent-uzhh.vercel.app",
-]
+# ALLOW ALL ORIGINS (The Nuclear Fix)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],  # <--- Change this to allow everything
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 # --- ADD THIS MIDDLEWARE (Replaces any previous version) ---
 @app.middleware("http")
