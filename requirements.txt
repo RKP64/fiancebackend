@@ -1,0 +1,61 @@
+# FastAPI and related tools
+fastapi
+uvicorn[standard]
+gunicorn
+
+# Security and authentication
+python-jose[cryptography]
+passlib==1.7.4
+bcrypt==3.2.2
+pyjwt
+
+# OpenAI and LangChain
+openai
+langchain
+langchain-openai
+google-genai
+
+# Azure SDKs
+azure-core
+azure-ai-contentsafety
+azure-search-documents
+azure-identity
+azure-monitor-opentelemetry
+azure-storage-blob
+
+# MongoDB client
+pymongo
+motor
+
+# Telemetry and observability
+opencensus-ext-azure
+opentelemetry-api
+opentelemetry-sdk
+opentelemetry-exporter-otlp
+openinference-instrumentation-openai
+opentelemetry-instrumentation-fastapi
+opentelemetry-instrumentation-requests
+opentelemetry-instrumentation-logging
+opentelemetry-instrumentation-pymongo
+opentelemetry-instrumentation-openai
+
+# Data processing and file handling
+pandas
+matplotlib
+python-docx
+beautifulsoup4
+html5lib
+python-multipart
+
+# HTTP Requests
+requests
+httpx
+
+# Environment variable management
+python-dotenv
+
+# Async file handling
+aiofiles
+aiohttp
+yfinance
+matplotlib
