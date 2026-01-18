@@ -931,7 +931,8 @@ origins = [
     "https://regulatoryai-dev.bialairport.com",
     "https://regulatory-hqeeh0gha3areghh.southindia-01.azurewebsites.net",
     "http://localhost:8020",
-    "http://127.0.0.1:8000",
+    "http://127.0.0.1:8000"
+    "https://kpmgfinance-agent-uzhh.vercel.app/",
 ]
 app.add_middleware(
     CORSMiddleware,
