@@ -1,3 +1,4 @@
+
 import uvicorn
 from google import genai
 from fastapi import (
@@ -144,51 +145,49 @@ def get_financial_table_markdown(tickers: list) -> str:
     table += "\n\n"
     return table
 
-# --- 4. GENERATE CHART ---
+# --- 4. GENERATE VISUALS (TABLE ONLY - NO PNG) ---
 def get_stock_chart_markdown(tickers: list) -> str:
-    """Generates a chart image."""
-    if not tickers: return ""
-    try:
-        data = yf.download(tickers, period="6mo", progress=False)['Close']
-        if data.empty: return ""
+    """Generates only the data table, no PNG image."""
+    return "" # We already have the table from 'get_financial_table_markdown'
 
-        plt.style.use('dark_background')
-        fig, ax = plt.subplots(figsize=(10, 4))
-        
-        for t in tickers:
-            if len(tickers) == 1:
-                vals = data
-                ax.plot(vals.index, vals, label=t, linewidth=2)
-            else:
-                if t in data.columns:
-                    ax.plot(data.index, data[t], label=t, linewidth=2)
-        
-        ax.set_ylabel("Price")
-        ax.grid(True, linestyle='--', alpha=0.2)
-        ax.legend()
-        plt.tight_layout()
-
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', transparent=True)
-        buf.seek(0)
-        img_str = base64.b64encode(buf.read()).decode('utf-8')
-        plt.close(fig)
-
-        return f"\n\n![Price Trend](data:image/png;base64,{img_str})\n"
-    except Exception as e:
-        return ""
-
-# --- 5. GET CONTEXT FOR LLM ---
+# --- 5. GET CONTEXT FOR LLM (PRO VERSION) ---
 def get_llm_financial_context(tickers: list) -> str:
-    context = "### REAL-TIME FINANCIAL DATA (Use this for your answer)\n"
+    context = "### CRITICAL INSTRUCTION: LIVE FINANCIAL DATA PROVIDED\n"
+    context += "Use this real-time data as your PRIMARY source. Do not apologize if internal docs are missing.\n\n"
+    
     has_data = False
     for t in tickers:
         info = get_cached_stock_info(t)
         if info:
             has_data = True
-            p = info.get('currentPrice', 'N/A')
-            h = info.get('fiftyTwoWeekHigh', 'N/A')
-            context += f"- {t}: Price={p}, 52W High={h}\n"
+            # -- Extract Core Data --
+            currency = info.get('currency', 'INR')
+            price = info.get('currentPrice', info.get('regularMarketPrice', 'N/A'))
+            
+            # Valuation
+            pe = info.get('trailingPE', 'N/A')
+            f_pe = info.get('forwardPE', 'N/A')
+            peg = info.get('pegRatio', 'N/A')
+            pb = info.get('priceToBook', 'N/A')
+            
+            # Fundamentals
+            roe = info.get('returnOnEquity', 0) * 100 if info.get('returnOnEquity') else 'N/A'
+            rev_growth = info.get('revenueGrowth', 0) * 100 if info.get('revenueGrowth') else 'N/A'
+            debt_equity = info.get('debtToEquity', 'N/A')
+            margins = info.get('profitMargins', 0) * 100 if info.get('profitMargins') else 'N/A'
+            
+            # Analyst View
+            target_price = info.get('targetMeanPrice', 'N/A')
+            recommendation = info.get('recommendationKey', 'N/A').upper()
+
+            # -- Build the Context String --
+            context += f"## 📊 Financial Report for {t}\n"
+            context += f"* **Price:** {currency} {price}\n"
+            context += f"* **Valuation:** P/E: {pe} | PEG: {peg} | P/B: {pb}\n"
+            context += f"* **Growth:** Revenue Growth (YoY): {rev_growth}%\n"
+            context += f"* **Health:** ROE: {roe}% | Net Margin: {margins}% | Debt/Eq: {debt_equity}\n"
+            context += f"* **Analyst Consensus:** {recommendation} (Target: {target_price})\n\n"
+            
     return context if has_data else ""
 
 # --- AZURE MONITOR OPENTELEMETRY IMPORTS ---
@@ -3823,18 +3822,28 @@ class ConversationalChatResponse(BaseModel):
 #  UPDATED CHAT HANDLER (Final Fix for Pipeline Argument)
 # ==============================================================================
 
+# ==============================================================================
+#  FINAL CHAT HANDLER (Hybrid RAG + Substantial Finance Data)
+# ==============================================================================
+
+# ==============================================================================
+#  FINAL CHAT HANDLER (Hybrid RAG + Substantial Finance + Intelligent Links)
+# ==============================================================================
+
 async def handle_chat_request(request: ConversationalChatRequest, current_user=None):
     try:
-        print("🔥 DEBUG: THE NEW CODE IS RUNNING! 🔥") 
+        print("🔥 DEBUG: THE NEW CODE IS RUNNING! (Final Version) 🔥")
 
         # 1. SETUP & DEFAULTS
         user_id = "dev_user"
         if current_user:
+            # Handle if current_user is a dict or an object
             user_id = current_user.get("id", "dev_user") if isinstance(current_user, dict) else str(current_user)
             
         q_lower = request.question.lower()
 
-        # --- FEATURE 1: GOOGLE MAPS ---
+        # --- FEATURE 1: GOOGLE MAPS GENERATION ---
+        # Triggers if query asks to "show map", "location of", etc.
         if "map" in q_lower and any(x in q_lower for x in ["show", "generate", "location", "view"]):
             loc_query = request.question
             for keyword in ["map of", "map for", "location of", "show me"]:
@@ -3843,32 +3852,42 @@ async def handle_chat_request(request: ConversationalChatRequest, current_user=N
                     if len(parts) > 1:
                         loc_query = parts[1].strip()
                         break
+            
             map_image = generate_google_map(loc_query)
             return ConversationalChatResponse(
                 answer=f"### 🗺️ Location Analysis: {loc_query.title()}\n{map_image}",
                 source="google-maps"
             )
 
-        # --- FEATURE 2: CHECK STATUS ---
+        # --- FEATURE 2: CHECK DEEP RESEARCH STATUS ---
         if any(x in q_lower for x in ["check status", "is it done", "job status", "research status"]):
             job = research_manager.get_job_status(user_id)
             if not job:
-                return ConversationalChatResponse(answer="No research job found for your session.")
+                return ConversationalChatResponse(answer="No research job found for your current session.")
+            
             if job["status"] == "completed":
-                return ConversationalChatResponse(answer=f"### ✅ Research Complete\n\n{job['result']}", source="deep-research-history")
+                return ConversationalChatResponse(
+                    answer=f"### ✅ Research Complete\n\n{job['result']}",
+                    source="deep-research-history"
+                )
             elif job["status"] == "failed":
                 return ConversationalChatResponse(answer=f"❌ Research Failed: {job.get('error')}")
             else:
                 return ConversationalChatResponse(answer="🔄 Research In Progress. Please check back in a few minutes.")
 
         # --- FEATURE 3: START DEEP RESEARCH ---
+        # Triggers for "deep dive", "web search", "deep agent"
         start_keywords = ["deep research", "deep dive", "deep agent", "web search", "internet"]
         if any(k in q_lower for k in start_keywords) and "status" not in q_lower:
             asyncio.create_task(research_manager.run_deep_research_task(user_id, request.question, ""))
-            return ConversationalChatResponse(answer="### 🚀 Deep Research Started\nI have launched the Google Deep Research agent.", source="system")
+            return ConversationalChatResponse(
+                answer="### 🚀 MarketResearch Started\nI have launched the KPMG Market Research agent to analyze this request. This may take 2-5 minutes depending on complexity.\n\n**Next Step:** You can ask me *'Check status'* in a few minutes to see the report.",
+                source="system"
+            )
 
-        # --- FEATURE 4: FINANCE ENGINE ---
-        finance_keywords = ["stock", "price", "market cap", "valuation", "compare", "chart", "share", "financial"]
+        # --- FEATURE 4: LIVE FINANCIAL INTELLIGENCE (PRO) ---
+        # Fetches deep metrics (PE, Growth) using Python. No code interpreter.
+        finance_keywords = [" live financial", " live market cap","live stock price" ]
         need_finance = any(k in q_lower for k in finance_keywords)
         
         finance_context_str = ""
@@ -3876,37 +3895,63 @@ async def handle_chat_request(request: ConversationalChatRequest, current_user=N
         
         if need_finance:
             print(f"🔍 DEBUG: Finance Intent Detected for: {q_lower}")
+            
+            # 1. Extract Tickers (e.g., "Tata" -> "TATAMOTORS.NS")
             tickers = await extract_tickers(request.question)
             
             if tickers:
+                print(f"🔍 DEBUG: Extracted Tickers: {tickers}")
+                
+                # 2. Get "Substantial" Context (PE, Growth, Analyst Ratings)
+                # This injects the data directly into the LLM's prompt.
                 finance_context_str = get_llm_financial_context(tickers)
+                
+                # 3. Get ONLY the Markdown Table (No PNG generation needed)
                 table_md = get_financial_table_markdown(tickers)
-                chart_md = get_stock_chart_markdown(tickers)
-                finance_visuals = table_md + chart_md
+                
+                finance_visuals = table_md
 
-        # --- FEATURE 5: RAG PIPELINE ---
+        # --- FEATURE 5: MAIN RAG PIPELINE (Standard Chat) ---
+        # Inject the financial data (if any) into the user's query
         augmented_query = request.question
         if finance_context_str:
             augmented_query = f"{finance_context_str}\n\nUSER QUESTION: {request.question}"
 
-        # CRITICAL FIX: Changed 'query=' to 'question=' to match your function definition
+        # Execute existing RAG pipeline (Azure Search + LLM Synthesis)
         rag_result = await execute_advanced_rag_pipeline(
             augmented_query, 
             history=request.history
         )
         
+        # --- INTELLIGENT SOURCE FORMATTING (FIX) ---
+        # Ensures Deep Research links remain clean URLs while PDFs get proxied
+        final_sources = []
+        for s in rag_result.get("sources", []):
+            # 1. Check if it's a Clean Web URL (Deep Research)
+            if isinstance(s, str) and (s.startswith("http://") or s.startswith("https://")):
+                final_sources.append(s)
+            
+            # 2. Check for Finance Tool Tag
+            elif s == "finance-tool":
+                final_sources.append(s)
+                
+            # 3. Default: Assume it's an Internal File (Azure Blob)
+            else:
+                final_sources.append(generate_blob_proxy_url(s))
+
+        # Combine the AI's analysis with the Data Table
         final_answer = rag_result["answer"] + finance_visuals
 
         return ConversationalChatResponse(
             answer=final_answer,
             plan=rag_result.get("plan", []),
-            sources=rag_result.get("sources", []),
+            sources=final_sources, # Use the fixed source list
             source="hybrid-rag"
         )
 
     except Exception as e:
         logging.error(f"Chat Error: {e}", exc_info=True)
-        return ConversationalChatResponse(answer=f"An error occurred: {str(e)}")
+        return ConversationalChatResponse(answer=f"An error occurred while processing your request: {str(e)}")
 
 @app.post(
     "/analyze-csv",
