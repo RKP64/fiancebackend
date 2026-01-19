@@ -2748,8 +2748,8 @@ async def get_query_plan_from_llm(
 
     history_str = "\n".join([f"{msg.role}: {msg.content}" for msg in history])
     # Ensure consistent prompt structure with clear JSON instruction
-    planning_prompt = f"""You are a query planning assistant for analyzing AERA regulatory documents (DIAL, MIAL, BIAL, HIAL).
-Break down the user's complex question into 1-10 simple, self-contained search queries for an index.
+    planning_prompt = f"""You are a query planning assistant for competitive intelligence and strategic market analysis.
+Break down the user's request into 1-10 simple, self-contained search queries focused on competitor moves, market share, and strategic shifts.
 Return ONLY a valid JSON list of strings (the queries). No explanations.
 
 CONVERSATION HISTORY (if any):
